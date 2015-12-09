@@ -1,4 +1,5 @@
 #!/usr/bin/python
+
 import sqlite3
 import datetime
 import requests
