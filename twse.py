@@ -11,11 +11,10 @@ def Initial():
         f.close()
         print "database stock.db exist"
     except:
-        con = sqlite3.connect('stock.db')
-        con.execute("create table inout ( code text, cname text, fbuy real, fsell real, tbuy real, tsell real, sbuy real, ssell real)")
-        with con:
-            print "create table inout: succeed"
-        con.close()
+        conn = sqlite3.connect('stock.db')
+        cur=conn.cursor()
+        cur.execute("create table inout ( code text, cname text, fbuy real, fsell real, tbuy real, tsell real, sbuy real, ssell real)")
+        conn.close()
 
 
 def connectDatabase():
@@ -29,7 +28,7 @@ def connectDatabase():
 def getYYYMMDD():
     now = datetime.datetime.now()
     #print now
-    return "%d/%02d/%02d" %( now.year-1911,now.month,now.day-4)
+    return "%d/%02d/%02d" %( now.year-1911,now.month,now.day-1)
 
 
 
@@ -59,8 +58,9 @@ response = requests.post(url, data=payload).text
 
 Initial()
 
-conn=connectDatabase()
+conn=sqlite3.connect('stock.db')
 cur= conn.cursor()
+
 soup = BeautifulSoup(response, 'html.parser')
 for row in soup.find_all("tr", bgcolor='#FFFFFF'):
 	tds = row.find_all("td")
@@ -75,15 +75,16 @@ for row in soup.find_all("tr", bgcolor='#FFFFFF'):
 			sin = tds[6].get_text().encode('utf8')
 			sout = tds[7].get_text().encode('utf8')
          		print sid, cname, fin, fout, tin, tout, sin, sout
-			with cucur.execute("insert into inout ( code , cname , fbuy , fsell , tbuy , tsell , sbuy , ssell ) values (?,?,?,?,?,?,?,?)",(sid, cname, fin, fout, tin, tout, sin, sout))
+			cur.execute("INSERT INTO inout ( code , cname , fbuy , fsell , tbuy , tsell , sbuy , ssell ) VALUES (?,?,?,?,?,?,?,?)",(sid, cname, fin, fout, tin, tout, sin, sout))
 		except:
 			print "bad data"
 			continue
 
-conn.commit()
 
-row = cur.fetchone()
-print row
+#cur= conn.cursor()
+#row = cur.fetchone()
+#print row
+conn.commit()
 conn.close()
 
 
