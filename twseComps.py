@@ -86,16 +86,18 @@ def GetStockInfoAndInsert(Stock, Year, Month):
                     diff = tds[7].get_text().encode('utf8').replace(',', '')
                     tc   = tds[8].get_text().encode('utf8').replace(',', '')
                     # print Stock, date, vol, val, open, high, low, end, tc
-                    # Date , TradingVolume , TradingValue , OpeningPrice , HighestPrice , FloorPrice , ClosingPrice , DifferencePrices , TradingCount , ForeignBuying , ForeignSell , InvestmentBuy , InvestmentSell , DealersBuy , DealersSell , DealersBuyHedging , DealersSellHedging , TotalTradingVolume 
+                    # Date , TradingVolume , TradingValue , OpeningPrice , HighestPrice , FloorPrice , ClosingPrice , DifferencePrices , TradingCount ,
+                    # ForeignBuying , ForeignSell ,
+                    # InvestmentBuy , InvestmentSell ,
+                    # DealersBuy , DealersSell ,
+                    # DealersBuyHedging , DealersSellHedging ,
+                    # TotalTradingVolume 
                     try:
-                        CMD1="UPDATE Id" + Stock + " set TradingVolume=" + vol + ", TradingValue=" + val + ", OpeningPrice=" + openning + ", HighestPrice=" + high + ", FloorPrice=" + low + ", ClosingPrice=" + end + " , DifferencePrices=" + diff + " , TradingCount=" + tc + " WHERE Date = '" + date + "'"
-                        print CMD1
+                        CMD1="INSERT OR REPLACE INTO Id%s (Date, TradingVolume, TradingValue, OpeningPrice, HighestPrice, FloorPrice, ClosingPrice, DifferencePrices, TradingCount, ForeignBuying, ForeignSell, InvestmentBuy, InvestmentSell, DealersBuy, DealersSell, DealersBuyHedging, DealersSellHedging, TotalTradingVolume) VALUES ('%s',%s,%s,%s,%s,%s,%s,%s,%s,(SELECT ForeignBuying FROM Id%s WHERE Date ='%s'),(SELECT ForeignSell FROM Id%s WHERE Date ='%s'),(SELECT InvestmentBuy FROM Id%s WHERE Date ='%s'),(SELECT InvestmentSell FROM Id%s WHERE Date ='%s'),(SELECT DealersBuy FROM Id%s WHERE Date ='%s'),(SELECT DealersSell FROM Id%s WHERE Date ='%s'),(SELECT DealersBuyHedging FROM Id%s WHERE Date ='%s'),(SELECT DealersSellHedging FROM Id%s WHERE Date ='%s'),(SELECT TotalTradingVolume FROM Id%s WHERE Date ='%s'))" % (Stock, date, vol, val, openning, high, low, end, diff, tc,Stock, date,Stock, date,Stock, date,Stock, date,Stock, date,Stock, date,Stock, date,Stock, date,Stock, date)
+                        #print CMD1 
                         cur.execute(CMD1)
                     except:
-                        CMD1="INSERT INTO Id" + Stock + " (Date, TradingVolume, TradingValue, OpeningPrice, HighestPrice, FloorPrice, ClosingPrice, DifferencePrices, TradingCount, ForeignBuying , ForeignSell , InvestmentBuy , InvestmentSell , DealersBuy , DealersSell , DealersBuyHedging , DealersSellHedging , TotalTradingVolume ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)"
-                        print CMD1
-                        print date
-                        cur.execute(CMD1,(date, vol, val, openning, high, low, end, diff,tc,0,0,0,0,0,0,0,0,0))
+                        print "Can't insert or replace "
                         continue
                     
                 except:
@@ -119,9 +121,9 @@ def GetBigThreeTrandingInfo(Year, Month, Day):
         "sorting": "by_issue",
         "login_btn": "+%ACd%B8%DF+-body"
     }
-    YYYMMDD=Year + "/" + Month + "/" + Day
-    print "YYYMMDD = " + YYYMMDD
-    payload['input_date'] = YYYMMDD
+    date=Year + "/" + Month + "/" + Day
+    print "YYYMMDD = " + date
+    payload['input_date'] = date
     payload['select2'] = '27'
     URL="http://www.twse.com.tw/ch/trading/fund/T86/T86.php"
     print payload
@@ -132,10 +134,10 @@ def GetBigThreeTrandingInfo(Year, Month, Day):
         soup = BeautifulSoup(response.text, 'html.parser')
         for row in soup.find_all("tr", bgcolor='#FFFFFF'):
             tds = row.find_all("td")
-            #print len(tds)
+            print len(tds)
             if len(tds) == 11:
                 try:
-                    sid = tds[0].get_text().encode('utf8')
+                    Stock = tds[0].get_text().encode('utf8')
                     cname = tds[1].get_text().encode('latin1','ignore').decode('big5')
                     fin = tds[2].get_text().encode('utf8').replace(',', '')
                     fout = tds[3].get_text().encode('utf8').replace(',', '')
@@ -146,31 +148,32 @@ def GetBigThreeTrandingInfo(Year, Month, Day):
                     shin = tds[8].get_text().encode('utf8').replace(',', '')
                     shout = tds[9].get_text().encode('utf8').replace(',', '')
                     total = tds[10].get_text().encode('utf8').replace(',', '')
-                    print sid, cname, fin, fout, tin, tout, sin, sout, shin, shout, total
-                    dbname = "Industry" + GetIndustryCodeFromStockId(sid) + ".db"
+                    print Stock, cname, fin, fout, tin, tout, sin, sout, shin, shout, total
+                    dbname = "Industry" + GetIndustryCodeFromStockId(Stock) + ".db"
+                    print "DBName=" + dbname
                     conn = sqlite3.connect(dbname)
                     cur= conn.cursor()
                     try:
-                        CMD="UPDATE Id" + sid + " set ForeignBuying="+ fin + ", ForeignSell=" + fout + ", InvestmentBuy=" + tin + ", InvestmentSell=" + tout + ", DealersBuy=" + sin + ", DealersSell=" + sout + " , DealersBuyHedging=" + shin + " , DealersSellHedging=" + shout + ", TotalTradingVolume=" + total + " WHERE Date = '" + YYYMMDD + "'"
-                        print CMD
-                        cur.execute(CMD)
+                        CMD1="INSERT OR REPLACE INTO Id%s (Date, TradingVolume, TradingValue, OpeningPrice, HighestPrice, FloorPrice, ClosingPrice, DifferencePrices, TradingCount,ForeignBuying, ForeignSell,InvestmentBuy, InvestmentSell,DealersBuy, DealersSell,DealersBuyHedging, DealersSellHedging,TotalTradingVolume) VALUES ('%s',(SELECT TradingVolume FROM Id%s WHERE Date ='%s'),(SELECT TradingValue FROM Id%s WHERE Date ='%s'),(SELECT OpeningPrice FROM Id%s WHERE Date ='%s'),(SELECT HighestPrice FROM Id%s WHERE Date ='%s'),(SELECT FloorPrice FROM Id%s WHERE Date ='%s'),(SELECT ClosingPrice FROM Id%s WHERE Date ='%s'),(SELECT DifferencePrices FROM Id%s WHERE Date ='%s'),(SELECT TradingCount FROM Id%s WHERE Date ='%s'),%s,%s,%s,%s,%s,%s,%s,%s,%s)" % (Stock,date,Stock, date,Stock, date,Stock, date,Stock, date,Stock, date,Stock, date,Stock, date,Stock, date,fin,fout,tin,tout,sin,sout,shin,shout,total)
+                        print CMD1
+                        cur.execute(CMD1)
+                        conn.commit()
+                        conn.close()
                     except:
-                        CMD="INSERT INTO Id" + sid + " ( Date, ForeignBuying , ForeignSell , InvestmentBuy , InvestmentSell , DealersBuy , DealersSell , DealersBuyHedging , DealersSellHedging , TotalTradingVolume  ) VALUES (?,?,?,?,?,?,?,?,?,?)"
-                        print CMD,YYYMMDD
-                        cur.execute(CMD,( YYYMMDD, fin, fout, tin, tout, sin, sout, shin, shout, total))
+                        print "sqlite error..."
+                        continue
                         
-                    conn.commit()
-                    conn.close()
                 except:
                     print ""
                     print "1: GetBigThreeTrandingInfo: Can't get Info."
-                    print tds
+                    #print tds
+                    #print len(tds)
                     print ""
                     continue
             elif len(tds) == 9:
                 try:
-                    print tds
-                    sid = tds[0].get_text().encode('utf8')
+                    #print tds
+                    Stock = tds[0].get_text().encode('utf8')
                     cname = tds[1].get_text().encode('latin1','ignore').decode('big5')
                     fin = tds[2].get_text().encode('utf8').replace(',', '')
                     fout = tds[3].get_text().encode('utf8').replace(',', '')
@@ -181,21 +184,21 @@ def GetBigThreeTrandingInfo(Year, Month, Day):
                     shin = 0
                     shout = 0
                     total = tds[8].get_text().encode('utf8').replace(',', '')
-                    print sid, cname, fin, fout, tin, tout, sin, sout, shin, shout, total
-                    dbname = "Industry" + GetIndustryCodeFromStockId(sid) + ".db"
+                    print Stock, cname, fin, fout, tin, tout, sin, sout, shin, shout, total
+                    dbname = "Industry" + GetIndustryCodeFromStockId(Stock) + ".db"
                     conn = sqlite3.connect(dbname)
                     cur= conn.cursor()
                     try:
-                        CMD="UPDATE Id" + sid + " set ForeignBuying="+ fin + ", ForeignSell=" + fout + ", InvestmentBuy=" + tin + ", InvestmentSell=" + tout + ", DealersBuy=" + sin + ", DealersSell=" + sout + " , DealersBuyHedging=" + shin + " , DealersSellHedging=" + shout + ", TotalTradingVolume=" + total + " WHERE Date = '" + YYYMMDD + "'"
-                        print CMD
-                        cur.execute(CMD)
+                        CMD1="INSERT OR REPLACE INTO Id%s (Date, TradingVolume, TradingValue, OpeningPrice, HighestPrice, FloorPrice, ClosingPrice, DifferencePrices, TradingCount,ForeignBuying, ForeignSell,InvestmentBuy, InvestmentSell,DealersBuy, DealersSell,DealersBuyHedging, DealersSellHedging,TotalTradingVolume) VALUES ('%s',(SELECT TradingVolume FROM Id%s WHERE Date ='%s'),(SELECT TradingValue FROM Id%s WHERE Date ='%s'),(SELECT OpeningPrice FROM Id%s WHERE Date ='%s'),(SELECT HighestPrice FROM Id%s WHERE Date ='%s'),(SELECT FloorPrice FROM Id%s WHERE Date ='%s'),(SELECT ClosingPrice FROM Id%s WHERE Date ='%s'),(SELECT DifferencePrices FROM Id%s WHERE Date ='%s'),(SELECT TradingCount FROM Id%s WHERE Date ='%s'),%s,%s,%s,%s,%s,%s,%s,%s,%s)" % (Stock,date,Stock, date,Stock, date,Stock, date,Stock, date,Stock, date,Stock, date,Stock, date,Stock, date,fin,fout,tin,tout,sin,sout,shin,shout,total)
+                        print CMD1
+                        cur.execute(CMD1)
+                        conn.commit()
+                        conn.close()
                     except:
-                        CMD="INSERT INTO Id" + sid + " ( Date, ForeignBuying , ForeignSell , InvestmentBuy , InvestmentSell , DealersBuy , DealersSell , DealersBuyHedging , DealersSellHedging , TotalTradingVolume  ) VALUES (?,?,?,?,?,?,?,?,?,?)"
-                        print CMD,YYYMMDD
-                        cur.execute(CMD,( YYYMMDD, fin, fout, tin, tout, sin, sout, shin, shout, total))
+                        print "sqlite failed."
+                        continue
                         
-                    conn.commit()
-                    conn.close()
+
                 except:
                     print ""
                     print "2: GetBigThreeTrandingInfo: Can't get Info."
@@ -256,8 +259,9 @@ def getYearDataBigThree( Year):
         GetBigThreeTrandingInfo(str(Year-1911),str(month),str(day))
 
 #getYearDataBigThree(2015)
-#for day in range (18,19,1):
-#  GetBigThreeTrandingInfo('2015','12',str(day))
+for day in range (1,19,1):
+  GetBigThreeTrandingInfo('104','12',str(day))
 
 GetStockTradingInfoFrom('2345',2015,12)
+GetStockTradingInfoFrom('2498',2015,12)
 #GetStockTradingInfoFrom('1437',2015,12)
