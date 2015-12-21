@@ -12,6 +12,9 @@ from grs import TWSEOpen
 import time
 import calendar
 
+def GetTWSEIsOpen(YYYY, MM, DD):
+    return  TWSEOpen().d_day(datetime(int(YYYY),int(MM),int(DD)))
+    
 def CreateDatabaseAndTable(DBName, List):
     try:
         f = open(DBName, 'r+')
@@ -30,9 +33,7 @@ def CreateDatabaseAndTable(DBName, List):
 
 def GetDBName (IndustryCode):
   dbname = "Industry" + IndustryCode + ".db"
-  #print "DBName = " + dbname + "."
   return dbname
-
   
 def GetIndustryCodeFromStockId(StockId):
   Comps = TWSENo().industry_comps
@@ -50,7 +51,6 @@ def GetIndustryCodeFromStockId(StockId):
   #print "Stock Id: " + StockId + " isn't found in any Industry Code!!!!!!"
   return '0'
 
-
 def Initial():
   twseIndustryCode = TWSENo().industry_code
   twseIndustryComps = TWSENo().industry_comps
@@ -62,11 +62,9 @@ def Initial():
       continue
 
 def GetStockTradeInfo(StockId, Year, Month):
-  #URL="http://www.twse.com.tw/ch/trading/exchange/STOCK_DAY/genpage/Report" + Year + Month + "/" + Year + Month + "_F3_1_8_" + StockId + ".php?STK_NO=" + StockId + "&myear=" + Year + "&mmon=" + Month
   URL="http://www.twse.com.tw/ch/trading/exchange/STOCK_DAY/genpage/Report%s%s/%s%s_F3_1_8_%s.php?STK_NO=%s&myear=%s&mmon=%s" % ( (Year-1911),Month,(Year-1911),Month,StockId, StockId, (Year-1911),Month)
   print URL
   return requests.get(URL).text
-
 
 def GetStockInfoAndInsert(Stock, Year, Month):
     industryCode = GetIndustryCodeFromStockId(Stock)
@@ -223,19 +221,25 @@ def GetLastModifiedDate():
     try:
         fo = open("LastModifiedDate.txt", "r")
         str = fo.read(10)
-        #print str
         a=str.split('/')
         yyymmdd.append(int(a[0]))
-        #print yyymmdd
         yyymmdd.append(int(a[1]))
-        #print yyymmdd
         yyymmdd.append(int(a[2]))
-        #print yyymmdd
     except:
         yyymmdd.append(2012)
         yyymmdd.append(5)
         yyymmdd.append(2)
     return yyymmdd
+
+def GetTodayYYYMMDD():
+    YYYMMDDOfToday = []
+    #YYYMMDDOfToday.append(dtime.date.today().year)
+    #YYYMMDDOfToday.append(dtime.date.today().month)
+    #YYYMMDDOfToday.append(dtime.date.today().day)
+    YYYMMDDOfToday.append(2012)
+    YYYMMDDOfToday.append(6)
+    YYYMMDDOfToday.append(4)
+    return YYYMMDDOfToday
 
 def SetLastModifiedDate(yyymmdd):
     try:
@@ -247,73 +251,64 @@ def SetLastModifiedDate(yyymmdd):
     except:
         print "Can't SetLastModifiedDate"
 
-def GetTodayYYYMMDD():
-    YYYMMDDOfToday = []
-    #YYYMMDDOfToday.append(dtime.date.today().year)
-    #YYYMMDDOfToday.append(dtime.date.today().month)
-    #YYYMMDDOfToday.append(dtime.date.today().day)
-    YYYMMDDOfToday.append(2012)
-    YYYMMDDOfToday.append(12)
-    YYYMMDDOfToday.append(31)
-    print "GetTodayYYYMMDD: "
-    print YYYMMDDOfToday
-    return YYYMMDDOfToday
-
-Initial()
-YYYMMDDOfStart = GetLastModifiedDate()
-YYYMMDDOfToday = GetTodayYYYMMDD()
-SetLastModifiedDate(YYYMMDDOfToday)
-print "Start day: "
-print YYYMMDDOfStart
-print "Today: "
-print YYYMMDDOfToday
-
-
-#for stockId industry13
-#  for year in 2013,2014,2015
-#    for month [1,2,3,4,5,6,7,8,9,10,11,12]
-twseIndustryCode = TWSENo().industry_code
-twseIndustryComps = TWSENo().industry_comps
-twseIsOpen = TWSEOpen()
-
-#for stockId in ['3596', '2345']:
-#    for year in ['2015']:
-#        for month in ['12']:
-            #GetStockInfoAndInsert(stockId, year, month)
-            #time.sleep(2)
-#            print "hello"
 def GetStockTradingInfoFrom(StockId, YearOfStart, MonthOfStart):
-    print YYYMMDDOfToday[0]
-    for year in range(YearOfStart-1911, YYYMMDDOfToday[0]+1, 1):
-        if (year == YearOfStart):
-            for month in range(MonthOfStart, 13, 1):
-                print "Get " + StockId + " Info of year: " + str(year) + " and month: " + str(month) + "."
-                GetStockInfoAndInsert(StockId, year, month)
-        else:
-            for month in range(1,13,1):
-                print "Get " + StockId + " Info of year: " + str(year) + " and month: " + str(month) + "."
+    for year in range(YearOfStart, YYYMMDDOfToday[0]+1, 1):
+        for month in range(1, 13, 1):
+            if (year == YearOfStart) and (month < MonthOfStart):
+                #print "Skip %s/%s" %(year, month)
+                continue
+            if (year == YYYMMDDOfToday[0]) and (month > YYYMMDDOfToday[1]):
+                #print "Skip %s/%s" %(year, month)
+                return
+            else:
+                print "Get %s Info of year: %s and month: %s." %(StockId, year, month)
                 GetStockInfoAndInsert(StockId, year, month)
                 
 
 
-def getYearDataBigThree( Year, Month, Day):
+def GetYearDataBigThree( Year, Month, Day):
   for year in range (Year, YYYMMDDOfToday[0]+1, 1):
     for month in range(1,13,1):
       if (year==Year) and (month<YYYMMDDOfStart[1]):
-        print "Skip %s/%s" %(year, month)
+        #print "Skip %s/%s" %(year, month)
         continue
       monthrange=calendar.monthrange(year, month)
       for day in range(1,monthrange[1]+1,1):
         if (year==Year) and (month==YYYMMDDOfStart[1]) and (day < YYYMMDDOfStart[2]):
-          print "Skip %s/%s/%s" %(year, month, day)
+          #print "Skip %s/%s/%s" %(year, month, day)
           continue
+        elif (year==YYYMMDDOfToday[0]) and (month==YYYMMDDOfToday[1]) and (day > YYYMMDDOfToday[2]):
+          #print "Skip %s/%s/%s" %(year, month, day)
+          return
+        elif (GetTWSEIsOpen(year, month, day)!=True):
+            #print "TWSE not open: %s/%s/%s" %(year, month, day)
+            continue
         else:
-          print "Get Big three Trading Info on %s/%s/%s" % (year, month, day)
-          GetBigThreeTrandingInfo(year,month,day)
+            print "Get Big three Trading Info on %s/%s/%s" % (year, month, day)
+            GetBigThreeTrandingInfo(year,month,day)
 
-#getYearDataBigThree(YYYMMDDOfStart[0],YYYMMDDOfStart[1],YYYMMDDOfStart[2])
 
-#GetStockTradingInfoFrom('2345',2015,12)
-#GetStockTradingInfoFrom('2498',2015,12)
-#GetStockTradingInfoFrom('1437',2015,12)
+def GetAllStockTradingInfoFrom(YYYY, MM):
+    twseIndustryCode = TWSENo().industry_code
+    twseIndustryComps = TWSENo().industry_comps
+    for industryCode in twseIndustryCode:
+        print "Industry Code: %s" %(industryCode)
+        try:
+            if len(twseIndustryComps[str(industryCode)]) > 0:
+                for stock in twseIndustryComps[str(industryCode)]:
+                    GetStockTradingInfoFrom(stock, YYYY,MM)
+        except:
+            print "Comps[%s] is empty." %(industryCode)
+            continue
 
+
+if __name__ == '__main__':
+    Initial()
+    YYYMMDDOfStart = GetLastModifiedDate()
+    YYYMMDDOfToday = GetTodayYYYMMDD()
+    SetLastModifiedDate(YYYMMDDOfToday)
+    print "Start day: %s" %(YYYMMDDOfStart)
+    print "Today: %s" %(YYYMMDDOfToday)
+
+    GetYearDataBigThree(YYYMMDDOfStart[0],YYYMMDDOfStart[1],YYYMMDDOfStart[2])
+    GetAllStockTradingInfoFrom(YYYMMDDOfStart[0],YYYMMDDOfStart[1])
