@@ -23,7 +23,7 @@ def CreateDatabaseAndTable(DBName, List):
         for stockId in List:
           try:
             cur.execute("create table Id" + stockId + " ( Date TEXT PRIMARY KEY, TradingVolume INTEGER, TradingValue INTEGER, OpeningPrice REAL, HighestPrice REAL, FloorPrice REAL, ClosingPrice REAL, DifferencePrices REAL, TradingCount INTEGER, ForeignBuying INTEGER, ForeignSell INTEGER, InvestmentBuy INTEGER, InvestmentSell INTEGER, DealersBuy INTEGER, DealersSell INTEGER, DealersBuyHedging INTEGER, DealersSellHedging INTEGER, TotalTradingVolume INTEGER)")
-            #print "create table Id" + stockId + " DONE"
+            print "create table Id" + stockId + " DONE"
           except:
             continue
         conn.close()
@@ -40,13 +40,15 @@ def GetIndustryCodeFromStockId(StockId):
     try:
       if len(Comps[str(IndustryCode)])>0:
         if StockId in Comps[str(IndustryCode)]:
-          print "Found " + StockId + " in " + IndustryCode
+          #print "Found " + StockId + " in " + IndustryCode
           return IndustryCode
         else:
+          #print "Stock ID: " + StockId + " isn't in Industry Code: " + IndustryCode
           continue
     except:
-      #print "Comps with key " + IndustryCode + " empty"
       continue
+  #print "Stock Id: " + StockId + " isn't found in any Industry Code!!!!!!"
+  return '0'
 
 
 def Initial():
@@ -60,8 +62,9 @@ def Initial():
       continue
 
 def GetStockTradeInfo(StockId, Year, Month):
-  URL="http://www.twse.com.tw/ch/trading/exchange/STOCK_DAY/genpage/Report" + Year + Month + "/" + Year + Month + "_F3_1_8_" + StockId + ".php?STK_NO=" + StockId + "&myear=" + Year + "&mmon=" + Month
-  #print URL
+  #URL="http://www.twse.com.tw/ch/trading/exchange/STOCK_DAY/genpage/Report" + Year + Month + "/" + Year + Month + "_F3_1_8_" + StockId + ".php?STK_NO=" + StockId + "&myear=" + Year + "&mmon=" + Month
+  URL="http://www.twse.com.tw/ch/trading/exchange/STOCK_DAY/genpage/Report%s%s/%s%s_F3_1_8_%s.php?STK_NO=%s&myear=%s&mmon=%s" % ( (Year-1911),Month,(Year-1911),Month,StockId, StockId, (Year-1911),Month)
+  print URL
   return requests.get(URL).text
 
 
@@ -121,12 +124,12 @@ def GetBigThreeTrandingInfo(Year, Month, Day):
         "sorting": "by_issue",
         "login_btn": "+%ACd%B8%DF+-body"
     }
-    date=Year + "/" + Month + "/" + Day
-    print "YYYMMDD = " + date
+    date="%s/%s/%s" %(Year-1911, Month, Day)
+    #print "YYYMMDD = " + date
     payload['input_date'] = date
     payload['select2'] = '27'
     URL="http://www.twse.com.tw/ch/trading/fund/T86/T86.php"
-    print payload
+    #print payload
     response = requests.post(URL, data=payload)
     if response.status_code == requests.codes.ok:
         #print response
@@ -134,7 +137,7 @@ def GetBigThreeTrandingInfo(Year, Month, Day):
         soup = BeautifulSoup(response.text, 'html.parser')
         for row in soup.find_all("tr", bgcolor='#FFFFFF'):
             tds = row.find_all("td")
-            print len(tds)
+            #print len(tds)
             if len(tds) == 11:
                 try:
                     Stock = tds[0].get_text().encode('utf8')
@@ -148,14 +151,19 @@ def GetBigThreeTrandingInfo(Year, Month, Day):
                     shin = tds[8].get_text().encode('utf8').replace(',', '')
                     shout = tds[9].get_text().encode('utf8').replace(',', '')
                     total = tds[10].get_text().encode('utf8').replace(',', '')
-                    print Stock, cname, fin, fout, tin, tout, sin, sout, shin, shout, total
-                    dbname = "Industry" + GetIndustryCodeFromStockId(Stock) + ".db"
-                    print "DBName=" + dbname
+                    IndustryCode = GetIndustryCodeFromStockId(Stock)
+                    if len(IndustryCode) <= 1:
+                        print "Can't get IndustryCode for StockID: " + Stock + "."
+                        print "Don't update info into database: "
+                        continue
+                    dbname = "Industry" + IndustryCode + ".db"
+                    print "Update Info: %s %s %s %s %s %s %s %s %s %s %s into database %s" %(Stock, cname, fin, fout, tin, tout, sin, sout, shin, shout, total, dbname)
+                    #print "DBName=" + dbname
                     conn = sqlite3.connect(dbname)
                     cur= conn.cursor()
                     try:
                         CMD1="INSERT OR REPLACE INTO Id%s (Date, TradingVolume, TradingValue, OpeningPrice, HighestPrice, FloorPrice, ClosingPrice, DifferencePrices, TradingCount,ForeignBuying, ForeignSell,InvestmentBuy, InvestmentSell,DealersBuy, DealersSell,DealersBuyHedging, DealersSellHedging,TotalTradingVolume) VALUES ('%s',(SELECT TradingVolume FROM Id%s WHERE Date ='%s'),(SELECT TradingValue FROM Id%s WHERE Date ='%s'),(SELECT OpeningPrice FROM Id%s WHERE Date ='%s'),(SELECT HighestPrice FROM Id%s WHERE Date ='%s'),(SELECT FloorPrice FROM Id%s WHERE Date ='%s'),(SELECT ClosingPrice FROM Id%s WHERE Date ='%s'),(SELECT DifferencePrices FROM Id%s WHERE Date ='%s'),(SELECT TradingCount FROM Id%s WHERE Date ='%s'),%s,%s,%s,%s,%s,%s,%s,%s,%s)" % (Stock,date,Stock, date,Stock, date,Stock, date,Stock, date,Stock, date,Stock, date,Stock, date,Stock, date,fin,fout,tin,tout,sin,sout,shin,shout,total)
-                        print CMD1
+                        #print CMD1
                         cur.execute(CMD1)
                         conn.commit()
                         conn.close()
@@ -164,11 +172,6 @@ def GetBigThreeTrandingInfo(Year, Month, Day):
                         continue
                         
                 except:
-                    print ""
-                    print "1: GetBigThreeTrandingInfo: Can't get Info."
-                    #print tds
-                    #print len(tds)
-                    print ""
                     continue
             elif len(tds) == 9:
                 try:
@@ -184,44 +187,87 @@ def GetBigThreeTrandingInfo(Year, Month, Day):
                     shin = 0
                     shout = 0
                     total = tds[8].get_text().encode('utf8').replace(',', '')
-                    print Stock, cname, fin, fout, tin, tout, sin, sout, shin, shout, total
-                    dbname = "Industry" + GetIndustryCodeFromStockId(Stock) + ".db"
+                    IndustryCode = GetIndustryCodeFromStockId(Stock)
+                    if len(IndustryCode) <= 1:
+                        print "Can't get IndustryCode for StockID: " + Stock + "."
+                        print "Don't update info into database: "
+                        print Stock, cname, fin, fout, tin, tout, sin, sout, shin, shout, total
+                        continue
+                    dbname = "Industry" + IndustryCode + ".db"
+                    print "Update Info: %s %s %s %s %s %s %s %s %s %s %s into database %s" %(Stock, cname, fin, fout, tin, tout, sin, sout, shin, shout, total, dbname)
                     conn = sqlite3.connect(dbname)
                     cur= conn.cursor()
                     try:
                         CMD1="INSERT OR REPLACE INTO Id%s (Date, TradingVolume, TradingValue, OpeningPrice, HighestPrice, FloorPrice, ClosingPrice, DifferencePrices, TradingCount,ForeignBuying, ForeignSell,InvestmentBuy, InvestmentSell,DealersBuy, DealersSell,DealersBuyHedging, DealersSellHedging,TotalTradingVolume) VALUES ('%s',(SELECT TradingVolume FROM Id%s WHERE Date ='%s'),(SELECT TradingValue FROM Id%s WHERE Date ='%s'),(SELECT OpeningPrice FROM Id%s WHERE Date ='%s'),(SELECT HighestPrice FROM Id%s WHERE Date ='%s'),(SELECT FloorPrice FROM Id%s WHERE Date ='%s'),(SELECT ClosingPrice FROM Id%s WHERE Date ='%s'),(SELECT DifferencePrices FROM Id%s WHERE Date ='%s'),(SELECT TradingCount FROM Id%s WHERE Date ='%s'),%s,%s,%s,%s,%s,%s,%s,%s,%s)" % (Stock,date,Stock, date,Stock, date,Stock, date,Stock, date,Stock, date,Stock, date,Stock, date,Stock, date,fin,fout,tin,tout,sin,sout,shin,shout,total)
-                        print CMD1
+                        #print CMD1
                         cur.execute(CMD1)
                         conn.commit()
                         conn.close()
                     except:
-                        print "sqlite failed."
+                        #print "sqlite failed."
                         continue
-                        
-
                 except:
-                    print ""
-                    print "2: GetBigThreeTrandingInfo: Can't get Info."
+                    #print ""
+                    #print "2: GetBigThreeTrandingInfo: Can't get Info."
                     print tds
-                    print ""
+                    #print ""
                     continue
             else:
-                print "len: " + str(len(tds))
+                #print "len: " + str(len(tds))
                 continue
     else:
         print "Can't POST dat to " + URL + "."
 
+def GetLastModifiedDate():
+    yyymmdd = []
+    try:
+        fo = open("LastModifiedDate.txt", "r")
+        str = fo.read(10)
+        #print str
+        a=str.split('/')
+        yyymmdd.append(int(a[0]))
+        #print yyymmdd
+        yyymmdd.append(int(a[1]))
+        #print yyymmdd
+        yyymmdd.append(int(a[2]))
+        #print yyymmdd
+    except:
+        yyymmdd.append(2012)
+        yyymmdd.append(5)
+        yyymmdd.append(2)
+    return yyymmdd
+
+def SetLastModifiedDate(yyymmdd):
+    try:
+        fo = open("LastModifiedDate.txt", "w+")
+        written="%s/%s/%s\n" %(yyymmdd[0],yyymmdd[1],yyymmdd[2])
+        print written
+        fo.write(written)
+        fo.closed()
+    except:
+        print "Can't SetLastModifiedDate"
+
+def GetTodayYYYMMDD():
+    YYYMMDDOfToday = []
+    #YYYMMDDOfToday.append(dtime.date.today().year)
+    #YYYMMDDOfToday.append(dtime.date.today().month)
+    #YYYMMDDOfToday.append(dtime.date.today().day)
+    YYYMMDDOfToday.append(2012)
+    YYYMMDDOfToday.append(12)
+    YYYMMDDOfToday.append(31)
+    print "GetTodayYYYMMDD: "
+    print YYYMMDDOfToday
+    return YYYMMDDOfToday
 
 Initial()
+YYYMMDDOfStart = GetLastModifiedDate()
+YYYMMDDOfToday = GetTodayYYYMMDD()
+SetLastModifiedDate(YYYMMDDOfToday)
+print "Start day: "
+print YYYMMDDOfStart
+print "Today: "
+print YYYMMDDOfToday
 
-YearOfToday = dtime.date.today().year
-MonthOfToday = dtime.date.today().month
-DayOfToday = dtime.date.today().day
-YearOfStart = 2010
-MonthOfStart = 1
-DayOfStart = 1
-
-#print YearOfToday,MonthOfToday,DayOfToday
 
 #for stockId industry13
 #  for year in 2013,2014,2015
@@ -237,31 +283,37 @@ twseIsOpen = TWSEOpen()
             #time.sleep(2)
 #            print "hello"
 def GetStockTradingInfoFrom(StockId, YearOfStart, MonthOfStart):
-    for year in range(YearOfStart, YearOfToday+1, 1):
+    print YYYMMDDOfToday[0]
+    for year in range(YearOfStart-1911, YYYMMDDOfToday[0]+1, 1):
         if (year == YearOfStart):
             for month in range(MonthOfStart, 13, 1):
                 print "Get " + StockId + " Info of year: " + str(year) + " and month: " + str(month) + "."
-                GetStockInfoAndInsert(StockId, str(year), str(month))
+                GetStockInfoAndInsert(StockId, year, month)
         else:
             for month in range(1,13,1):
                 print "Get " + StockId + " Info of year: " + str(year) + " and month: " + str(month) + "."
-                GetStockInfoAndInsert(StockId, str(year), str(month))
+                GetStockInfoAndInsert(StockId, year, month)
                 
 
 
-def getYearDataBigThree( Year):
-  for month in range(12,13,1):
-    monthrange=calendar.monthrange(Year, month)
-    for day in range(1,monthrange[1]+1,1):
-      if (month==MonthOfToday) and (day>DayOfToday):
-        break
-      elif (twseIsOpen.d_day(datetime(Year, month, day))== True):
-        GetBigThreeTrandingInfo(str(Year-1911),str(month),str(day))
+def getYearDataBigThree( Year, Month, Day):
+  for year in range (Year, YYYMMDDOfToday[0]+1, 1):
+    for month in range(1,13,1):
+      if (year==Year) and (month<YYYMMDDOfStart[1]):
+        print "Skip %s/%s" %(year, month)
+        continue
+      monthrange=calendar.monthrange(year, month)
+      for day in range(1,monthrange[1]+1,1):
+        if (year==Year) and (month==YYYMMDDOfStart[1]) and (day < YYYMMDDOfStart[2]):
+          print "Skip %s/%s/%s" %(year, month, day)
+          continue
+        else:
+          print "Get Big three Trading Info on %s/%s/%s" % (year, month, day)
+          GetBigThreeTrandingInfo(year,month,day)
 
-#getYearDataBigThree(2015)
-for day in range (1,19,1):
-  GetBigThreeTrandingInfo('104','12',str(day))
+#getYearDataBigThree(YYYMMDDOfStart[0],YYYMMDDOfStart[1],YYYMMDDOfStart[2])
 
-GetStockTradingInfoFrom('2345',2015,12)
-GetStockTradingInfoFrom('2498',2015,12)
+#GetStockTradingInfoFrom('2345',2015,12)
+#GetStockTradingInfoFrom('2498',2015,12)
 #GetStockTradingInfoFrom('1437',2015,12)
+
