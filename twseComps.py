@@ -62,15 +62,26 @@ def Initial():
       continue
 
 def GetStockTradeInfo(StockId, Year, Month):
-  URL="http://www.twse.com.tw/ch/trading/exchange/STOCK_DAY/genpage/Report%s%s/%s%s_F3_1_8_%s.php?STK_NO=%s&myear=%s&mmon=%s" % ( (Year-1911),Month,(Year-1911),Month,StockId, StockId, (Year-1911),Month)
-  print URL
-  return requests.get(URL).text
+    # GET /ch/trading/exchange/STOCK_DAY/genpage/Report201506/201506_F3_1_8_3596.php?STK_NO=3596&myear=2015&mmon=06 HTTP/1.1
+    # Host: www.twse.com.tw
+    # Connection: keep-alive
+    # Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8
+    # Upgrade-Insecure-Requests: 1
+    # User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_11_2) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/47.0.2526.106 Safari/537.36
+    # Referer: http://www.twse.com.tw/ch/trading/exchange/STOCK_DAY/STOCK_DAY.php
+    # Accept-Encoding: gzip, deflate, sdch
+    # Accept-Language: zh-TW,zh;q=0.8,zh-CN;q=0.6,en;q=0.4,de;q=0.2,ja;q=0.2
+    # Cookie: __utma=193825960.1668213010.1450343217.1450544037.1450601202.8; __utmc=193825960; __utmz=193825960.1450343217.1.1.utmcsr=(direct)|utmccn=(direct)|utmcmd=(none)
+    URL="http://www.twse.com.tw/ch/trading/exchange/STOCK_DAY/genpage/Report%s%02d/%s%02d_F3_1_8_%s.php?STK_NO=%s&myear=%s&mmon=%02d" % ( Year,Month,Year,Month,StockId, StockId, Year,Month)
+    print URL
+    return requests.get(URL).text
 
 def GetStockInfoAndInsert(Stock, Year, Month):
     industryCode = GetIndustryCodeFromStockId(Stock)
     response = GetStockTradeInfo(Stock, Year, Month)
     soup = BeautifulSoup(response, 'html.parser')
     try:
+        print "DBName %s" %(GetDBName(industryCode))
         conn = sqlite3.connect(GetDBName(industryCode))
         cur= conn.cursor()
         for row in soup.find_all("tr", bgcolor='#FFFFFF'):
@@ -86,16 +97,16 @@ def GetStockInfoAndInsert(Stock, Year, Month):
                     end  = tds[6].get_text().encode('utf8').replace(',', '')
                     diff = tds[7].get_text().encode('utf8').replace(',', '')
                     tc   = tds[8].get_text().encode('utf8').replace(',', '')
-                    # print Stock, date, vol, val, open, high, low, end, tc
+                    print Stock, date, vol, val, openning, high, low, end, tc
                     # Date , TradingVolume , TradingValue , OpeningPrice , HighestPrice , FloorPrice , ClosingPrice , DifferencePrices , TradingCount ,
                     # ForeignBuying , ForeignSell ,
                     # InvestmentBuy , InvestmentSell ,
                     # DealersBuy , DealersSell ,
                     # DealersBuyHedging , DealersSellHedging ,
-                    # TotalTradingVolume 
+                    # TotalTradingVolume
+                    CMD1="INSERT OR REPLACE INTO Id%s (Date, TradingVolume, TradingValue, OpeningPrice, HighestPrice, FloorPrice, ClosingPrice, DifferencePrices, TradingCount, ForeignBuying, ForeignSell, InvestmentBuy, InvestmentSell, DealersBuy, DealersSell, DealersBuyHedging, DealersSellHedging, TotalTradingVolume) VALUES ('%s',%s,%s,%s,%s,%s,%s,%s,%s,(SELECT ForeignBuying FROM Id%s WHERE Date ='%s'),(SELECT ForeignSell FROM Id%s WHERE Date ='%s'),(SELECT InvestmentBuy FROM Id%s WHERE Date ='%s'),(SELECT InvestmentSell FROM Id%s WHERE Date ='%s'),(SELECT DealersBuy FROM Id%s WHERE Date ='%s'),(SELECT DealersSell FROM Id%s WHERE Date ='%s'),(SELECT DealersBuyHedging FROM Id%s WHERE Date ='%s'),(SELECT DealersSellHedging FROM Id%s WHERE Date ='%s'),(SELECT TotalTradingVolume FROM Id%s WHERE Date ='%s'))" % (Stock, date, vol, val, openning, high, low, end, diff, tc,Stock, date,Stock, date,Stock, date,Stock, date,Stock, date,Stock, date,Stock, date,Stock, date,Stock, date)
+                    print CMD1 
                     try:
-                        CMD1="INSERT OR REPLACE INTO Id%s (Date, TradingVolume, TradingValue, OpeningPrice, HighestPrice, FloorPrice, ClosingPrice, DifferencePrices, TradingCount, ForeignBuying, ForeignSell, InvestmentBuy, InvestmentSell, DealersBuy, DealersSell, DealersBuyHedging, DealersSellHedging, TotalTradingVolume) VALUES ('%s',%s,%s,%s,%s,%s,%s,%s,%s,(SELECT ForeignBuying FROM Id%s WHERE Date ='%s'),(SELECT ForeignSell FROM Id%s WHERE Date ='%s'),(SELECT InvestmentBuy FROM Id%s WHERE Date ='%s'),(SELECT InvestmentSell FROM Id%s WHERE Date ='%s'),(SELECT DealersBuy FROM Id%s WHERE Date ='%s'),(SELECT DealersSell FROM Id%s WHERE Date ='%s'),(SELECT DealersBuyHedging FROM Id%s WHERE Date ='%s'),(SELECT DealersSellHedging FROM Id%s WHERE Date ='%s'),(SELECT TotalTradingVolume FROM Id%s WHERE Date ='%s'))" % (Stock, date, vol, val, openning, high, low, end, diff, tc,Stock, date,Stock, date,Stock, date,Stock, date,Stock, date,Stock, date,Stock, date,Stock, date,Stock, date)
-                        #print CMD1 
                         cur.execute(CMD1)
                     except:
                         print "Can't insert or replace "
@@ -114,6 +125,7 @@ def GetStockInfoAndInsert(Stock, Year, Month):
         return
 
 def GetBigThreeTrandingInfo(Year, Month, Day):
+  # input_date=104%2F06%2F08&select2=ALLBUT0999&sorting=by_issue&login_btn=+%ACd%B8%DF+
     payload = { 
         "Host": "http://www.twse.com.tw",
         "Referer": "http://www.twse.com.tw/ch/trading/fund/T86/T86.php",
@@ -122,10 +134,10 @@ def GetBigThreeTrandingInfo(Year, Month, Day):
         "sorting": "by_issue",
         "login_btn": "+%ACd%B8%DF+-body"
     }
-    date="%s/%s/%s" %(Year-1911, Month, Day)
-    #print "YYYMMDD = " + date
+    date="%d/%02d/%02d" %(Year-1911, Month, Day)
+    print "YYYMMDD = " + date
     payload['input_date'] = date
-    payload['select2'] = '27'
+    #payload['select2'] = '27'
     URL="http://www.twse.com.tw/ch/trading/fund/T86/T86.php"
     #print payload
     response = requests.post(URL, data=payload)
@@ -217,34 +229,34 @@ def GetBigThreeTrandingInfo(Year, Month, Day):
         print "Can't POST dat to " + URL + "."
 
 def GetLastModifiedDate():
-    yyymmdd = []
+    yyyymmdd = []
     try:
         fo = open("LastModifiedDate.txt", "r")
         str = fo.read(10)
         a=str.split('/')
-        yyymmdd.append(int(a[0]))
-        yyymmdd.append(int(a[1]))
-        yyymmdd.append(int(a[2]))
+        yyyymmdd.append(int(a[0]))
+        yyyymmdd.append(int(a[1]))
+        yyyymmdd.append(int(a[2]))
     except:
-        yyymmdd.append(2012)
-        yyymmdd.append(5)
-        yyymmdd.append(2)
-    return yyymmdd
+        yyyymmdd.append(2015)
+        yyyymmdd.append(1)
+        yyyymmdd.append(1)
+    return yyyymmdd
 
-def GetTodayYYYMMDD():
-    YYYMMDDOfToday = []
-    #YYYMMDDOfToday.append(dtime.date.today().year)
-    #YYYMMDDOfToday.append(dtime.date.today().month)
-    #YYYMMDDOfToday.append(dtime.date.today().day)
-    YYYMMDDOfToday.append(2012)
-    YYYMMDDOfToday.append(6)
-    YYYMMDDOfToday.append(4)
-    return YYYMMDDOfToday
+def GetTodayYYYYMMDD():
+    YYYYMMDDOfToday = []
+    YYYYMMDDOfToday.append(dtime.date.today().year)
+    YYYYMMDDOfToday.append(dtime.date.today().month)
+    YYYYMMDDOfToday.append(dtime.date.today().day)
+    #YYYYMMDDOfToday.append(2015)
+    #YYYYMMDDOfToday.append(9)
+    #YYYYMMDDOfToday.append(31)
+    return YYYYMMDDOfToday
 
-def SetLastModifiedDate(yyymmdd):
+def SetLastModifiedDate(yyyymmdd):
     try:
         fo = open("LastModifiedDate.txt", "w+")
-        written="%s/%s/%s\n" %(yyymmdd[0],yyymmdd[1],yyymmdd[2])
+        written="%s/%s/%s\n" %(yyyymmdd[0],yyyymmdd[1],yyyymmdd[2])
         print written
         fo.write(written)
         fo.closed()
@@ -252,63 +264,94 @@ def SetLastModifiedDate(yyymmdd):
         print "Can't SetLastModifiedDate"
 
 def GetStockTradingInfoFrom(StockId, YearOfStart, MonthOfStart):
-    for year in range(YearOfStart, YYYMMDDOfToday[0]+1, 1):
+    for year in range(YearOfStart, YYYYMMDDOfToday[0]+1, 1):
         for month in range(1, 13, 1):
             if (year == YearOfStart) and (month < MonthOfStart):
                 #print "Skip %s/%s" %(year, month)
                 continue
-            if (year == YYYMMDDOfToday[0]) and (month > YYYMMDDOfToday[1]):
+            if (year == YYYYMMDDOfToday[0]) and (month > YYYYMMDDOfToday[1]):
                 #print "Skip %s/%s" %(year, month)
                 return
             else:
+                print ""
                 print "Get %s Info of year: %s and month: %s." %(StockId, year, month)
                 GetStockInfoAndInsert(StockId, year, month)
                 
 
 
 def GetYearDataBigThree( Year, Month, Day):
-  for year in range (Year, YYYMMDDOfToday[0]+1, 1):
-    for month in range(1,13,1):
-      if (year==Year) and (month<YYYMMDDOfStart[1]):
-        #print "Skip %s/%s" %(year, month)
-        continue
-      monthrange=calendar.monthrange(year, month)
-      for day in range(1,monthrange[1]+1,1):
-        if (year==Year) and (month==YYYMMDDOfStart[1]) and (day < YYYMMDDOfStart[2]):
-          #print "Skip %s/%s/%s" %(year, month, day)
-          continue
-        elif (year==YYYMMDDOfToday[0]) and (month==YYYMMDDOfToday[1]) and (day > YYYMMDDOfToday[2]):
-          #print "Skip %s/%s/%s" %(year, month, day)
-          return
-        elif (GetTWSEIsOpen(year, month, day)!=True):
-            #print "TWSE not open: %s/%s/%s" %(year, month, day)
-            continue
-        else:
-            print "Get Big three Trading Info on %s/%s/%s" % (year, month, day)
-            GetBigThreeTrandingInfo(year,month,day)
+    print "GetYearDataBigThree(%s, %s, %s)" %(Year, Month, Day)
+    for year in range (Year, YYYYMMDDOfToday[0]+1, 1):
+        for month in range(1,13,1):
+            if (year==Year) and (month<YYYYMMDDOfStart[1]):
+                print "Skip %s/%s" %(year, month)
+                continue
+            elif (year==YYYYMMDDOfToday[0]) and (month>YYYYMMDDOfToday[1]):
+                print "Skip %s/%s" %(year, month)
+                return
+            else:
+                monthrange=calendar.monthrange(year, month)
+                for day in range(1,monthrange[1]+1,1):
+                    if (year==Year) and (month==YYYYMMDDOfStart[1]) and (day < YYYYMMDDOfStart[2]):
+                        print "Skip %s/%s/%s" %(year, month, day)
+                        continue
+                    elif (year==YYYYMMDDOfToday[0]) and (month==YYYYMMDDOfToday[1]) and (day > YYYYMMDDOfToday[2]):
+                        print "Skip %s/%s/%s" %(year, month, day)
+                        return
+                    elif (GetTWSEIsOpen(year, month, day)!=True):
+                        print "TWSE not open: %s/%s/%s" %(year, month, day)
+                        continue
+                    else:
+                        print "Get Big three Trading Info on %s/%s/%s" % (year, month, day)
+                        GetBigThreeTrandingInfo(year,month,day)
 
 
 def GetAllStockTradingInfoFrom(YYYY, MM):
-    twseIndustryCode = TWSENo().industry_code
-    twseIndustryComps = TWSENo().industry_comps
-    for industryCode in twseIndustryCode:
-        print "Industry Code: %s" %(industryCode)
+    Code = TWSENo().industry_code
+    Comps= TWSENo().industry_comps
+    for code in Code.keys():
+        print "Industry Code: %s, %s" %(code, Code.get(code))
         try:
-            if len(twseIndustryComps[str(industryCode)]) > 0:
-                for stock in twseIndustryComps[str(industryCode)]:
-                    GetStockTradingInfoFrom(stock, YYYY,MM)
+            if (len(Comps[str(code)]) > 0):
+                for stock in Comps[str(code)]:
+                    #print "Stock: " + stock
+                    GetStockTradingInfoFrom(stock, YYYY, MM)
+                print "Industry Code: %s is not empty" %(code)
         except:
-            print "Comps[%s] is empty." %(industryCode)
-            continue
-
+            print "Industry Code: %s is empty" %(code)
+            
+def printIndustryCodeAndTheirStocks():
+    fo = open("IndustryCodesAndTheirStocks.txt", "wb")
+    Code = TWSENo().industry_code
+    Codes = Code.keys()
+    Codes.sort()
+    Comps= TWSENo().industry_comps
+    for code in Codes:
+        #print "Industry Code: %s, %s" %(code, Code.get(code))
+        a="Industry Code: %s, %s\n" %(code, Code.get(code))
+        #fo.write("Industry Code: " + str(code) + ": " + Code.get(code) )
+        fo.write(a.encode("utf8"))
+        try:
+            if (len(Comps[str(code)]) > 0):
+                for stock in Comps[str(code)]:
+                    print stock
+                    fo.write(str(stock) + " ")
+                fo.write("\n\n");
+                #print "Industry Code: %s is not empty" %(code)
+        except:
+            print "Industry Code: %s is empty" %(code)
+            fo.write("Industry Code: " + str(code) + " is empty\n")
+    fo.close()
 
 if __name__ == '__main__':
     Initial()
-    YYYMMDDOfStart = GetLastModifiedDate()
-    YYYMMDDOfToday = GetTodayYYYMMDD()
-    SetLastModifiedDate(YYYMMDDOfToday)
-    print "Start day: %s" %(YYYMMDDOfStart)
-    print "Today: %s" %(YYYMMDDOfToday)
+    YYYYMMDDOfStart = GetLastModifiedDate()
+    YYYYMMDDOfToday = GetTodayYYYYMMDD()
+    SetLastModifiedDate(YYYYMMDDOfToday)
+    print "Start day: %s" %(YYYYMMDDOfStart)
+    print "Today: %s" %(YYYYMMDDOfToday)
 
-    GetYearDataBigThree(YYYMMDDOfStart[0],YYYMMDDOfStart[1],YYYMMDDOfStart[2])
-    GetAllStockTradingInfoFrom(YYYMMDDOfStart[0],YYYMMDDOfStart[1])
+    #printIndustryCodeAndTheirStocks()
+    GetYearDataBigThree(YYYYMMDDOfStart[0],YYYYMMDDOfStart[1],YYYYMMDDOfStart[2])
+    GetAllStockTradingInfoFrom(YYYYMMDDOfStart[0],YYYYMMDDOfStart[1])
+    
